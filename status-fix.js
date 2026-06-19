@@ -44,5 +44,3 @@ window.toggleNotifyStatus = async id => {
     notify('เปลี่ยนสถานะไม่สำเร็จ กรุณาลองใหม่');
   }
 };
-
-render();
