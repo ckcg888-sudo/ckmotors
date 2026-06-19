@@ -1,98 +1,15 @@
-// Reliability layer: only clear the form after IndexedDB confirms the transaction.
-function committedPut(value) {
-  return new Promise((resolve, reject) => {
-    if (!db) return reject(new Error('ฐานข้อมูลยังไม่พร้อม'));
-    const tx = db.transaction(STORE, 'readwrite');
-    tx.objectStore(STORE).put(value);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error || new Error('เขียนข้อมูลไม่ได้'));
-    tx.onabort = () => reject(tx.error || new Error('พื้นที่จัดเก็บไม่เพียงพอ'));
-  });
-}
-
-function readSavedRecord(id) {
-  return new Promise((resolve, reject) => {
-    if (!db) return reject(new Error('ฐานข้อมูลยังไม่พร้อม'));
-    const tx = db.transaction(STORE, 'readonly');
-    const request = tx.objectStore(STORE).get(id);
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error || new Error('ตรวจสอบข้อมูลไม่ได้'));
-    tx.onabort = () => reject(tx.error || new Error('ตรวจสอบข้อมูลไม่ได้'));
-  });
-}
-
-function compactImage(file) {
-  return new Promise((resolve, reject) => {
-    if (!file || !file.type.startsWith('image/')) return reject(new Error('กรุณาเลือกไฟล์รูปภาพเท่านั้น'));
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('อ่านรูปไม่ได้'));
-    reader.onload = () => {
-      const image = new Image();
-      image.onerror = () => reject(new Error('ไฟล์รูปนี้ไม่รองรับ'));
-      image.onload = () => {
-        const maxSize = 1280;
-        const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.max(1, Math.round(image.width * scale));
-        canvas.height = Math.max(1, Math.round(image.height * scale));
-        canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL('image/jpeg', 0.75));
-      };
-      image.src = reader.result;
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-$('enginePhoto').onchange = async event => {
-  const file = event.target.files[0];
-  if (!file) return;
-  try {
-    showPreview(await compactImage(file));
-  } catch (error) {
-    event.target.value = '';
-    notify(error.message);
-  }
-};
-
-$('entryForm').onsubmit = async event => {
-  event.preventDefault();
-  if (!pendingImage) return notify('กรุณาอัปโหลดรูปหมายเลขเครื่องยนต์');
-
-  const button = $('saveBtn');
-  const wasEditing = Boolean(editingId);
-  button.disabled = true;
-  button.textContent = 'กำลังบันทึก…';
-
-  try {
-    const previous = editingId ? await readSavedRecord(editingId) : null;
-    const data = {
-      id: editingId || crypto.randomUUID(),
-      txDate: $('txDate').value,
-      sourceShop: $('sourceShop').value.trim(),
-      customerTakesNumber: document.querySelector('input[name=customerTakesNumber]:checked').value,
-      engineNumber: $('engineNumber').value.trim().toUpperCase(),
-      photo: pendingImage,
-      createdAt: previous?.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    await committedPut(data);
-    const saved = await readSavedRecord(data.id);
-    if (!saved || saved.engineNumber !== data.engineNumber || !saved.photo) {
-      throw new Error('ตรวจสอบข้อมูลหลังบันทึกไม่ผ่าน');
-    }
-
-    await render();
-    resetForm();
-    notify(wasEditing ? 'แก้ไขและตรวจสอบข้อมูลแล้ว' : 'บันทึกและตรวจสอบข้อมูลแล้ว');
-  } catch (error) {
-    console.error('Save failed:', error);
-    notify('บันทึกไม่สำเร็จ ข้อมูลในฟอร์มยังอยู่ กรุณาลองใหม่');
-    button.textContent = wasEditing ? 'บันทึกการแก้ไข' : 'บันทึกรายการ';
-  } finally {
-    button.disabled = false;
-  }
-};
-
-if (navigator.storage?.persist) navigator.storage.persist().catch(() => {});
+let pendingIdCard = '';
+function committedPut(value){return new Promise((resolve,reject)=>{if(!db)return reject(new Error('ฐานข้อมูลยังไม่พร้อม'));const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put(value);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error||new Error('เขียนข้อมูลไม่ได้'));tx.onabort=()=>reject(tx.error||new Error('พื้นที่จัดเก็บไม่เพียงพอ'))})}
+function readSavedRecord(id){return new Promise((resolve,reject)=>{if(!db)return reject(new Error('ฐานข้อมูลยังไม่พร้อม'));const tx=db.transaction(STORE,'readonly'),request=tx.objectStore(STORE).get(id);request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error||new Error('ตรวจสอบข้อมูลไม่ได้'))})}
+function compactImage(file,quality=.78){return new Promise((resolve,reject)=>{if(!file||!file.type.startsWith('image/'))return reject(new Error('กรุณาเลือกไฟล์รูปภาพเท่านั้น'));const reader=new FileReader;reader.onerror=()=>reject(new Error('อ่านรูปไม่ได้'));reader.onload=()=>{const image=new Image;image.onerror=()=>reject(new Error('ไฟล์รูปนี้ไม่รองรับ'));image.onload=()=>{const maxSize=1600,scale=Math.min(1,maxSize/Math.max(image.width,image.height)),canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(image.width*scale));canvas.height=Math.max(1,Math.round(image.height*scale));canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);resolve(canvas.toDataURL('image/jpeg',quality))};image.src=reader.result};reader.readAsDataURL(file)})}
+function showIdCardPreview(source){pendingIdCard=source;$('idCardPreview').src=source;$('idCardPreview').hidden=false;$('idCardPrompt').hidden=true;$('idCardActions').classList.add('show')}
+function clearIdCardPreview(){pendingIdCard='';$('idCardPreview').src='';$('idCardPreview').hidden=true;$('idCardPrompt').hidden=false;$('idCardActions').classList.remove('show');$('idCardPhoto').value=''}
+$('enginePhoto').onchange=async event=>{const file=event.target.files[0];if(!file)return;try{showPreview(await compactImage(file,.76))}catch(error){event.target.value='';notify(error.message)}};
+$('idCardPhoto').onchange=async event=>{const file=event.target.files[0];if(!file)return;try{showIdCardPreview(await compactImage(file,.84))}catch(error){event.target.value='';notify(error.message)}};
+$('changeIdCard').onclick=()=>$('idCardPhoto').click();
+resetForm=function(){editingId=null;$('entryForm').reset();$('txDate').value=new Date().toLocaleDateString('en-CA');clearPreview();clearIdCardPreview();$('saveBtn').textContent='บันทึกรายการ';$('formActions').classList.remove('editing')};
+render=async function(){const query=$('search').value.trim().toLowerCase(),items=(await all()).filter(record=>[record.engineNumber,record.sourceShop,record.customerName,record.customerPhone].some(value=>String(value||'').toLowerCase().includes(query))).sort((a,b)=>b.txDate.localeCompare(a.txDate)||b.createdAt.localeCompare(a.createdAt));$('recordCount').textContent=`${items.length} รายการ`;$('records').innerHTML=items.length?items.map(record=>`<article class="record"><div class="record-main"><img src="${record.photo}" alt="รูปหมายเลข ${esc(record.engineNumber)}" onclick="viewPhoto('${record.id}')"><div><div class="date">${dateTH(record.txDate)}</div><div class="engine">${esc(record.engineNumber)}</div><div class="shop">ลูกค้า: ${esc(record.customerName||'ยังไม่ระบุ')}</div><div class="shop">โทร: ${esc(record.customerPhone||'-')}</div><div class="shop">ซื้อจาก ${esc(record.sourceShop)}</div><span class="status ${record.customerTakesNumber==='no'?'no':''}">${record.customerTakesNumber==='yes'?'ลูกค้าเอาหมายเลข':'ลูกค้าไม่เอาหมายเลข'}</span></div></div>${record.idCardPhoto?`<div class="record-actions"><button type="button" onclick="viewIdCard('${record.id}')">ดูรูปบัตร</button><button type="button" onclick="editRecord('${record.id}')">แก้ไข</button><button type="button" onclick="deleteRecord('${record.id}')">ลบ</button></div>`:`<div class="record-actions"><button type="button" onclick="editRecord('${record.id}')">แก้ไข</button><button type="button" onclick="deleteRecord('${record.id}')">ลบ</button></div>`}</article>`).join(''):'<div class="empty">ยังไม่มีรายการที่บันทึก</div>'};
+window.editRecord=async id=>{const record=await readSavedRecord(id);if(!record)return notify('ไม่พบรายการนี้');editingId=id;$('txDate').value=record.txDate;$('sourceShop').value=record.sourceShop||'';$('customerName').value=record.customerName||'';$('customerPhone').value=record.customerPhone||'';$('documentAddress').value=record.documentAddress||'';$('engineNumber').value=record.engineNumber||'';$(record.customerTakesNumber==='yes'?'takeYes':'takeNo').checked=true;showPreview(record.photo);if(record.idCardPhoto)showIdCardPreview(record.idCardPhoto);else clearIdCardPreview();$('saveBtn').textContent='บันทึกการแก้ไข';$('formActions').classList.add('editing');scrollTo({top:0,behavior:'smooth'})};
+window.viewIdCard=async id=>{const record=await readSavedRecord(id);if(!record?.idCardPhoto)return notify('รายการนี้ยังไม่มีรูปบัตร');$('fullPhoto').src=record.idCardPhoto;$('photoDialog').showModal()};
+$('entryForm').onsubmit=async event=>{event.preventDefault();if(!pendingIdCard)return notify('กรุณาอัปโหลดรูปบัตรประชาชนเจ้าของรถ');if(!pendingImage)return notify('กรุณาอัปโหลดรูปหมายเลขเครื่องยนต์');const button=$('saveBtn'),wasEditing=Boolean(editingId);button.disabled=true;button.textContent='กำลังบันทึก…';try{const previous=editingId?await readSavedRecord(editingId):null,data={id:editingId||crypto.randomUUID(),txDate:$('txDate').value,sourceShop:$('sourceShop').value.trim(),customerTakesNumber:document.querySelector('input[name=customerTakesNumber]:checked').value,customerName:$('customerName').value.trim(),customerPhone:$('customerPhone').value.trim(),documentAddress:$('documentAddress').value.trim(),idCardPhoto:pendingIdCard,engineNumber:$('engineNumber').value.trim().toUpperCase(),photo:pendingImage,createdAt:previous?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()};await committedPut(data);const saved=await readSavedRecord(data.id);if(!saved||saved.engineNumber!==data.engineNumber||!saved.photo||!saved.idCardPhoto||!saved.customerName)throw new Error('ตรวจสอบข้อมูลหลังบันทึกไม่ผ่าน');await render();resetForm();notify(wasEditing?'แก้ไขและตรวจสอบข้อมูลแล้ว':'บันทึกและตรวจสอบข้อมูลแล้ว')}catch(error){console.error('Save failed:',error);notify('บันทึกไม่สำเร็จ ข้อมูลในฟอร์มยังอยู่ กรุณาลองใหม่');button.textContent=wasEditing?'บันทึกการแก้ไข':'บันทึกรายการ'}finally{button.disabled=false}};
+if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{});
